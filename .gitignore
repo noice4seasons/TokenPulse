@@ -1,0 +1,24 @@
+# Local upstream audit clone (never commit)
+_upstream/
+
+# Coagent / editor / local scratch artifacts
+.coagent/
+.vscode/
+.idea/
+*.log
+
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# SQLite local runtime files
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Windows / OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
