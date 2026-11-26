@@ -11,6 +11,10 @@ use tokenpulse_core_domain::{
     models::{ProviderId, UsageMetrics},
     quota::{CreditObservation, QuotaObservation},
 };
+use tokenpulse_provider_antigravity::{
+    discover_transcript_files, AntigravityRoots, AntigravityScanner,
+    DualTrackCheckpoint as AgDualTrackCheckpoint, VerificationMode,
+};
 use tokenpulse_provider_codex::{
     discover_jsonl_files, read_default_service_tier, scan_file, validate_safe_local_path,
     CodexRoots, DualTrackCheckpoint, ScanOptions,
@@ -224,6 +228,177 @@ pub fn sync_codex_once(
     }
     summary.elapsed_ms = start.elapsed().as_millis();
     Ok(summary)
+}
+
+pub fn sync_antigravity_once(
+    roots: &AntigravityRoots,
+    store: &StoreHandle,
+    scanners: &mut std::collections::HashMap<String, AntigravityScanner>,
+    now_ms: i64,
+    force_rebuild: bool,
+) -> Result<SyncSummary, String> {
+    let start = Instant::now();
+    let files = discover_transcript_files(roots).map_err(err)?;
+    let mut summary = SyncSummary {
+        discovered_files: files.len(),
+        ..Default::default()
+    };
+    for file in files {
+        let path_hash = digest(file.path.as_os_str().as_encoded_bytes());
+        let id = digest(format!("ag:conv:{}", file.conversation_id).as_bytes());
+        let scanner = scanners.entry(id.clone()).or_default();
+        let old = store.source_state(&id).map_err(err)?;
+        let previous = old.as_ref().filter(|_| !force_rebuild);
+        let checkpoint = previous
+            .map(|s| serde_json::from_str::<AgDualTrackCheckpoint>(&s.checkpoint_json))
+            .transpose()
+            .map_err(err)?;
+        let vmode = if force_rebuild {
+            VerificationMode::Full
+        } else {
+            VerificationMode::Tail
+        };
+        let scan = scanner
+            .scan(roots, &file.path, &id, checkpoint.as_ref(), vmode, now_ms)
+            .map_err(err)?;
+        let cp = &scan.next_checkpoint;
+        summary.scanned_files += 1;
+        summary.rebased_files += usize::from(scan.rebased);
+        summary.files_with_gaps += usize::from(scan.has_coverage_gap);
+        summary.max_validation_bytes_read = summary
+            .max_validation_bytes_read
+            .max(scan.validation_bytes_read);
+        summary.total_validation_bytes_read += scan.validation_bytes_read;
+        summary.total_payload_bytes_read += scan.payload_bytes_read;
+        let mode = if force_rebuild || scan.rebased || old.is_none() || scan.has_coverage_gap {
+            CommitMode::Rebuild {
+                complete_without_gaps: scan.complete_without_gaps && scan.scanned_from_offset == 0,
+                seen_request_ids: scan
+                    .entries
+                    .iter()
+                    .map(|e| e.request_id.as_ref().unwrap_or(&e.identity_key).clone())
+                    .collect(),
+            }
+        } else {
+            CommitMode::Tail
+        };
+        let expected = old
+            .as_ref()
+            .map(SourceState::expected_version)
+            .unwrap_or_default();
+        let checkpoint_json = serde_json::to_string(cp).map_err(err)?;
+        let revision = digest(
+            format!(
+                "{}|{}|{}",
+                id,
+                expected.expected_version_token.as_deref().unwrap_or(""),
+                checkpoint_json
+            )
+            .as_bytes(),
+        );
+        let generation = match &old {
+            Some(s) if force_rebuild || scan.rebased => {
+                s.generation.checked_add(1).ok_or("generation overflow")?
+            }
+            Some(s) => s.generation,
+            None => cp.generation,
+        };
+        let batch = CommitBatch {
+            expected,
+            source: SourceState {
+                source_id: id,
+                provider: ProviderId::Antigravity,
+                current_path_hash: path_hash,
+                volume_serial: file
+                    .identity
+                    .volume_serial
+                    .map(|x| x.to_string())
+                    .unwrap_or_default(),
+                file_index: file
+                    .identity
+                    .file_index
+                    .map(|x| x.to_string())
+                    .unwrap_or_default(),
+                creation_time_100ns: file
+                    .identity
+                    .creation_time_100ns
+                    .map(i64::try_from)
+                    .transpose()
+                    .map_err(err)?,
+                generation,
+                committed_offset: cp.byte_offset,
+                version_token: revision,
+                checkpoint_json,
+                resume_state_json: scan.resume_state_json,
+                sealed_before_ms: old.as_ref().and_then(|s| s.sealed_before_ms),
+                updated_at_ms: now_ms,
+            },
+            mode,
+            entries: scan.entries,
+            identity_links: vec![],
+            identity_seeds: vec![],
+            quotas: vec![],
+            credits: vec![],
+        };
+        match store.commit(batch).map_err(err)? {
+            CommitOutcome::Committed(counts) => summary.committed_entries += counts.inserted,
+            CommitOutcome::StaleConflict => summary.skipped_stale += 1,
+        }
+    }
+    summary.elapsed_ms = start.elapsed().as_millis();
+    Ok(summary)
+}
+
+#[derive(Debug, Serialize)]
+pub struct AntigravityVerifySection {
+    pub round1: SyncSummary,
+    pub round2: SyncSummary,
+    pub round3: SyncSummary,
+    pub metrics: UsageMetrics,
+    pub latest_turn_cache_hit_ratio: Option<f64>,
+    pub incremental_validation_within_limit: bool,
+    pub incremental_no_inserts: bool,
+    pub metrics_consistent_across_rounds: bool,
+}
+
+pub fn run_antigravity_verification(
+    roots: &AntigravityRoots,
+    db_path: &Path,
+) -> Result<AntigravityVerifySection, String> {
+    let store = StoreHandle::open(db_path).map_err(err)?;
+    let now = i64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(err)?
+            .as_millis(),
+    )
+    .map_err(err)?;
+    let all = || {
+        store
+            .query_exact_range(i64::MIN, i64::MAX, Some(ProviderId::Antigravity))
+            .map(|r| r.aggregate.metrics)
+            .map_err(err)
+    };
+    let mut scanners = std::collections::HashMap::new();
+    let round1 = sync_antigravity_once(roots, &store, &mut scanners, now, false)?;
+    let m1 = all()?;
+    let latest_cache = store
+        .latest_turn_cache_hit_ratio(Some(ProviderId::Antigravity))
+        .map_err(err)?;
+    let round2 = sync_antigravity_once(roots, &store, &mut scanners, now, false)?;
+    let m2 = all()?;
+    let round3 = sync_antigravity_once(roots, &store, &mut scanners, now, true)?;
+    let m3 = all()?;
+    Ok(AntigravityVerifySection {
+        incremental_validation_within_limit: round2.max_validation_bytes_read <= 8192,
+        incremental_no_inserts: round2.committed_entries == 0,
+        metrics_consistent_across_rounds: m1 == m2 && m1 == m3,
+        round1,
+        round2,
+        round3,
+        metrics: m1,
+        latest_turn_cache_hit_ratio: latest_cache,
+    })
 }
 
 #[derive(Debug, Serialize)]

@@ -42,6 +42,9 @@ pub enum QuotaWindowState {
         last_used_pct: Option<f64>,
         expired_at_ms: i64,
     },
+    PlanRestricted {
+        reason: Option<String>,
+    },
     NoData,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

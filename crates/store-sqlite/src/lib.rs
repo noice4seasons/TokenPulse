@@ -401,4 +401,38 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn latest_turn_cache_ratio_and_daily_heatmap() {
+        let s = StoreHandle::open_in_memory().unwrap();
+        let tz = TimeZoneSpec::FixedOffset { offset_minutes: 0 };
+        assert_eq!(s.latest_turn_cache_hit_ratio(None).unwrap(), None);
+        let mut e1 = entry("r1", 10);
+        e1.tokens = TokenVector {
+            input_tokens: 100,
+            non_cached_input_tokens: 20,
+            cache_read_tokens: 80,
+            cache_creation_tokens: 0,
+            output_tokens: 10,
+            reasoning_output_tokens: 0,
+        };
+        e1.reprice();
+        let mut e2 = entry("r2", DAY_MS + 10);
+        e2.tokens = TokenVector {
+            input_tokens: 400,
+            non_cached_input_tokens: 300,
+            cache_read_tokens: 100,
+            cache_creation_tokens: 0,
+            output_tokens: 20,
+            reasoning_output_tokens: 0,
+        };
+        e2.reprice();
+        committed(&s, batch(&s, "s", vec![e1, e2]));
+        let latest = s.latest_turn_cache_hit_ratio(Some(ProviderId::Codex)).unwrap().unwrap();
+        assert!((latest - 0.25).abs() < 1e-9);
+        let hm = s.query_daily_heatmap(DAY_MS + 100, 3, tz, None).unwrap();
+        assert_eq!(hm.len(), 3);
+        assert_eq!(hm[0].level, 0);
+        assert_eq!(hm[1].level, 2);
+        assert_eq!(hm[2].level, 4);
+    }
 }

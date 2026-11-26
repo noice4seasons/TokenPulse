@@ -285,3 +285,21 @@ pub struct QuotaObservation {
 2. **同进程 WebView2 内存回收不彻底**：阶段二探针若发现连续 10 次开关详情页后私有提交无法回落，则立即切换为同一 EXE 的短命 `--detail-host` 子进程宿主，关闭详情窗口即退出子进程确保 OS 级 100% 回收。
 3. **极端精简 Windows 11 缺失 WebView2 Runtime**：托盘与 Direct2D 悬浮窗完全不依赖 WebView2，100% 正常运作；仅点击“详细面板”时友好提示下载微软官方 WebView2 Runtime（绝不静默联网下载）。
 4. **Codex 未来日志 Schema 变更**：防御性 JSON 解析，未知字段安全忽略、关键字段缺失返回 `Unknown / 暂无数据`，记录脱敏解析告警且不影响其余指标统计。
+
+---
+
+## 九、v2.2 社区项目调研吸收与安全过滤附注（2026-11-26）
+
+在阶段二完成后，对比研读了开源社区 MIT 协议项目 `elviscjn-cjn/antigravity-context-viewer` 与 `ahmetdotsh/agy-context`，在严守本方案第二节全部安全红线的前提下，正式吸收以下 **4 项高价值改进**，并明确拒绝所有高风险侵入式做法：
+
+1. **Antigravity 纯离线只读 `transcript.jsonl` 数值解析（已落地至 `crates/provider-antigravity`）**：
+   - 探针 A 实测确认 Antigravity 2.35.2 本地 HTTPS 仅提供内置自签证书且无 `--csrf_token` 命令行参数；因此在线额度组 RPC 仍保持安全冻结/缓存态。
+   - 吸收 `agy-context` 零侵入离线路径：直接只读扫描 `%USERPROFILE%\.gemini\antigravity\brain\<cid>\.system_generated\logs\transcript.jsonl`，流式仅反序列化 `type == "PLANNER_RESPONSE" && status == "DONE"` 的数值与模型元数据（`step_index`, `created_at`, `model`, `input_tokens`, `cache_read_tokens`, `output_tokens`），**彻底忽略 `content`/`thinking`/`tool_calls` 正文**；按实测互斥口径映射（`non_cached_input = input_tokens`, `cache_read = cache_read_tokens`, `inclusive_input = non_cached + cache_read`），复用安全本地路径校验与 O(1)/全校双轨断点，使 Antigravity 在 V1 即具备 100% 纯离线、零外网、零凭据的精确 Token、模型分布与缓存命中率监控能力。
+2. **双维缓存命中率（最近一轮 vs 累计）**：
+   - 在 `OverlaySnapshotDto` / `DashboardSnapshotDto` 与 `store-sqlite` 中新增 `latest_turn_cache_hit_ratio`，与累计 `cache_hit_ratio` 并列展示，便于实时诊断长对话缓存失效。
+3. **模型额度四态细粒度分类**：
+   - `QuotaWindowState` 增补 `PlanRestricted { reason }`（当前套餐无权限），与正常活跃、已耗尽/过期等待新活动、暂无数据严格区分，且受限态绝不触发低额度告警。
+4. **阶段三 UI 视觉采纳**：
+   - 悬浮窗支持「紧凑环形胶囊 + 展开卡片」双形态；详情面板新增 **5 档日活跃热力图**（`DailyHeatmapCellDto`，复用 UTC 整桶+边缘明细精确查询）。
+5. **明确拒绝项**：严禁改写客户端 `app.asar` / CDP 挂载 / 二进制解锁 / 篡改提示词或汉化 / 劫持 CLI 启动链；严禁读取 `hub_*.json` 或 OAuth 凭据并向自签证书端点发令牌；严禁 `rejectUnauthorized: false`、明文降级或联网拉取外部定价表。
+

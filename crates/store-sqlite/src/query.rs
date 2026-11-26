@@ -1,5 +1,5 @@
 use crate::{provider, schema, timezone::*, Result, StoreError, StoreHandle};
-use rusqlite::{params, Connection, TransactionBehavior};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::Serialize;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -134,6 +134,18 @@ impl StoreHandle {
     ) -> Result<Vec<CreditObservation>> {
         self.snapshot(move |db| credits(db, p, scope.as_deref()))
     }
+    pub fn latest_turn_cache_hit_ratio(&self, p: Option<ProviderId>) -> Result<Option<f64>> {
+        self.snapshot(move |db| latest_turn_cache_ratio(db, p))
+    }
+    pub fn query_daily_heatmap(
+        &self,
+        now_ms: i64,
+        days: u32,
+        tz: TimeZoneSpec,
+        p: Option<ProviderId>,
+    ) -> Result<Vec<DailyHeatmapCellDto>> {
+        self.snapshot(move |db| daily_heatmap(db, now_ms, days, tz, p))
+    }
     /// Scope selects one adapter instance/session. Without a selected scope,
     /// provider cards contain no account data.
     pub fn query_dashboard_snapshot(
@@ -185,9 +197,13 @@ impl StoreHandle {
                     }),
                 });
             }
+            let latest_turn_cache_hit_ratio = latest_turn_cache_ratio(db, None)?;
+            let daily_heatmap = daily_heatmap(db, now, 30, tz, None)?;
             Ok(DashboardSnapshotDto {
                 protocol_version: PROTOCOL_VERSION,
                 priced_token_coverage_ratio: today.aggregate.metrics.priced_token_coverage_ratio(),
+                latest_turn_cache_hit_ratio,
+                daily_heatmap,
                 today: today.aggregate,
                 last_7_days: range(7)?.aggregate,
                 last_30_days: range(30)?.aggregate,
@@ -323,4 +339,59 @@ fn credits(
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+fn latest_turn_cache_ratio(db: &Connection, p: Option<ProviderId>) -> Result<Option<f64>> {
+    let row: Option<(u64, u64)> = db
+        .query_row(
+            "SELECT non_cached_input_tokens, cache_read_tokens FROM usage_entry \
+             WHERE (?1 IS NULL OR provider=?1) AND (non_cached_input_tokens + cache_read_tokens) > 0 \
+             ORDER BY timestamp_ms DESC, rowid DESC LIMIT 1",
+            [p.map(provider)],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    Ok(row.and_then(|(nc, cr)| {
+        let total = u128::from(nc) + u128::from(cr);
+        (total > 0).then(|| cr as f64 / total as f64)
+    }))
+}
+fn heatmap_level(tokens: u64, max_tokens: u64) -> u8 {
+    if tokens == 0 || max_tokens == 0 {
+        return 0;
+    }
+    let ratio = tokens as f64 / max_tokens as f64;
+    if ratio <= 0.25 {
+        1
+    } else if ratio <= 0.50 {
+        2
+    } else if ratio <= 0.75 {
+        3
+    } else {
+        4
+    }
+}
+fn daily_heatmap(
+    db: &Connection,
+    now_ms: i64,
+    days: u32,
+    tz: TimeZoneSpec,
+    p: Option<ProviderId>,
+) -> Result<Vec<DailyHeatmapCellDto>> {
+    let bounds = daily_bounds_utc(now_ms, days, tz)?;
+    let mut raw = Vec::with_capacity(bounds.len());
+    let mut max_tokens = 0u64;
+    for (start, end) in bounds {
+        let m = exact(db, start, end, p)?.aggregate.metrics;
+        max_tokens = max_tokens.max(m.total_tokens);
+        raw.push((start, m.total_tokens, m.request_count));
+    }
+    Ok(raw
+        .into_iter()
+        .map(|(date_utc_start_ms, total_tokens, request_count)| DailyHeatmapCellDto {
+            date_utc_start_ms,
+            total_tokens,
+            request_count,
+            level: heatmap_level(total_tokens, max_tokens),
+        })
+        .collect())
 }

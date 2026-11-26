@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 tokenpulse-core-domain = { path = "../core-domain" }
 tokenpulse-provider-codex = { path = "../provider-codex" }
+tokenpulse-provider-antigravity = { path = "../provider-antigravity" }
 tokenpulse-store-sqlite = { path = "../store-sqlite" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

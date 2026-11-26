@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/core-domain",
     "crates/provider-codex",
+    "crates/provider-antigravity",
     "crates/store-sqlite",
     "crates/scheduler",
     "crates/app",

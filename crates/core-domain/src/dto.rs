@@ -64,8 +64,18 @@ pub struct OverlaySnapshotDto {
     pub today_tokens: Option<u64>,
     pub today_coverage: Coverage,
     pub cache_hit_ratio: Option<f64>,
+    pub latest_turn_cache_hit_ratio: Option<f64>,
     pub privacy_badge: PrivacyBadge,
     pub updated_at_ms: i64,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DailyHeatmapCellDto {
+    pub date_utc_start_ms: i64,
+    pub total_tokens: u64,
+    pub request_count: u64,
+    /// Intensity bucket in 0..=4 (0 = inactive, 1..=4 = quartile activity tiers).
+    pub level: u8,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -104,6 +114,10 @@ pub struct DashboardSnapshotDto {
     pub providers: Vec<ProviderCardDto>,
     /// Share of today's tokens with an exact API-equivalent estimate.
     pub priced_token_coverage_ratio: Option<f64>,
+    /// Cache hit ratio of the most recent request with prompt input tokens.
+    pub latest_turn_cache_hit_ratio: Option<f64>,
+    /// Daily 5-tier activity heatmap cells ordered chronologically.
+    pub daily_heatmap: Vec<DailyHeatmapCellDto>,
     pub updated_at_ms: i64,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

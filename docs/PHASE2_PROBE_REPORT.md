@@ -44,3 +44,14 @@
   - **第 3 轮（全量 Rebuild）**：耗时 **`2,070 ms`**，全量汇总指标与第 1 轮 **100% 精确相等**（无历史丢失、无重复计费）。
   - **体积与安全红线**：Release 单二进制（含内嵌 SQLite）体积 **`1.62 MB`**（目标 `< 10 MB`）；`Cargo.lock` 网络相关 crate 数量 **`0`**；导出 JSON 与核验报告隐私自检全部通过（零绝对路径、零 `auth.json`、零对话正文）。
 
+---
+
+## 四、v2.2 社区调研吸收与双平台离线端到端验收（Codex + Antigravity）
+
+- **Workspace 全量单测与集成测试**：`cargo test --workspace` **64 / 64 全部通过（0 error, 0 warning）**（新增 `tokenpulse-provider-antigravity` 12 项单元测试与 `tokenpulse-store-sqlite` 最近一轮缓存命中率/5 档热力图单元测试）。
+- **双平台纯离线实机验收**（`tokenpulse.exe --verify-all`，Release 构建，**`passed = true`**）：
+  - **Codex**：`36` 文件、`1,335` 条去重执行、`108,121,470` Tokens；冷扫 `2,533 ms`，第 2 轮 O(1) **`63 ms`**（`max_validation_bytes_read = 8,192 B`），最近一轮缓存命中率 **`97.39%`**，30 天 5 档活跃热力图正常生成。
+  - **Antigravity（100% 纯离线 `transcript.jsonl` 数值解析，零凭据/零自签 RPC/零正文落盘）**：`13` 文件、`391` 条去重执行、**`62,220,011` Tokens**（非缓存输入 `4,175,179` + 缓存读 `57,275,708` + 输出 `769,124`）；冷扫 **`135 ms`**，第 2 轮 O(1) **`11 ms`**（`max_validation_bytes_read = 8,192 B`），最近一轮缓存命中率 **`99.23%`**，三轮冷扫/增量/Rebuild 指标 **100% 精确相等**。
+  - **体积与安全红线**：双平台 Release 单二进制体积 **`1.70 MB`**；`Cargo.lock` 网络相关 crate 数量保持 **`0`**。
+
+

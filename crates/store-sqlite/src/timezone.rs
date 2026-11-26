@@ -125,6 +125,18 @@ pub fn last_n_days_bounds_utc(now_ms: i64, count: u32, tz: TimeZoneSpec) -> Resu
     let n = tz.local(now_ms).div_euclid(i128::from(DAY_MS)) as i64;
     Ok((tz.midnight(n + 1 - i64::from(count))?, tz.midnight(n + 1)?))
 }
+pub(crate) fn daily_bounds_utc(now_ms: i64, count: u32, tz: TimeZoneSpec) -> Result<Vec<(i64, i64)>> {
+    if count == 0 || count > 366 {
+        return Err(StoreError::Invalid("invalid heatmap day count"));
+    }
+    let n = tz.local(now_ms).div_euclid(i128::from(DAY_MS)) as i64;
+    let start_day = n + 1 - i64::from(count);
+    let mut bounds = Vec::with_capacity(count as usize);
+    for day in start_day..=n {
+        bounds.push((tz.midnight(day)?, tz.midnight(day + 1)?));
+    }
+    Ok(bounds)
+}
 pub(crate) fn month_start(ms: i64) -> Result<i64> {
     unix_ms_from_civil(CivilDate {
         day: 1,

@@ -406,6 +406,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tokenpulse-core-domain",
+ "tokenpulse-provider-antigravity",
  "tokenpulse-provider-codex",
  "tokenpulse-store-sqlite",
 ]
@@ -416,6 +417,19 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tokenpulse-provider-antigravity"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokenpulse-core-domain",
+ "windows",
 ]
 
 [[package]]

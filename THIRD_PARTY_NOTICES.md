@@ -35,3 +35,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+---
+
+## Community Design & Format References (MIT)
+
+TokenPulse also drew non-code conceptual inspiration (read-only transcript metric layout, latest-turn vs. cumulative cache efficiency, 5-tier activity heatmap, and quota restriction states) from the following MIT-licensed open-source projects (no source code copied; all invasive/credential-access features intentionally excluded):
+
+- **agy-context**: https://github.com/ahmetdotsh/agy-context (MIT License)
+- **antigravity-context-viewer**: https://github.com/elviscjn-cjn/antigravity-context-viewer (MIT License)

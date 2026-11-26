@@ -5,9 +5,10 @@ use std::{
     path::{Path, PathBuf},
     process::ExitCode,
 };
+use tokenpulse_provider_antigravity::AntigravityRoots;
 use tokenpulse_provider_codex::CodexRoots;
 
-const USAGE: &str = "tokenpulse --verify-codex [--codex-home <dir>] [--db <path>]";
+const USAGE: &str = "tokenpulse (--verify-codex | --verify-all) [--codex-home <dir>] [--antigravity-brain <dir>] [--db <path>]";
 
 fn db_files(path: &Path) -> [PathBuf; 3] {
     ["", "-wal", "-shm"].map(|suffix| {
@@ -20,13 +21,22 @@ fn db_files(path: &Path) -> [PathBuf; 3] {
 fn run() -> Result<bool, String> {
     let mut args = env::args_os().skip(1);
     let mut verify = false;
+    let mut verify_all = false;
     let mut home = None;
+    let mut ag_brain = None;
     let mut db = None;
     while let Some(flag) = args.next() {
         match flag.to_str() {
-            Some("--verify-codex") if !verify => verify = true,
-            Some("--codex-home" | "--db") => {
-                let slot = if flag == "--db" { &mut db } else { &mut home };
+            Some("--verify-codex") if !verify && !verify_all => verify = true,
+            Some("--verify-all") if !verify && !verify_all => verify_all = true,
+            Some("--codex-home" | "--antigravity-brain" | "--db") => {
+                let slot = if flag == "--db" {
+                    &mut db
+                } else if flag == "--antigravity-brain" {
+                    &mut ag_brain
+                } else {
+                    &mut home
+                };
                 let value = args
                     .next()
                     .filter(|s| !s.is_empty() && !s.to_string_lossy().starts_with("--"))
@@ -38,7 +48,7 @@ fn run() -> Result<bool, String> {
             _ => return Err(USAGE.into()),
         }
     }
-    if !verify {
+    if !verify && !verify_all {
         return Err(USAGE.into());
     }
     let roots = match home {
@@ -69,6 +79,17 @@ fn run() -> Result<bool, String> {
             .map_err(|e| e.to_string())?;
     }
     let report = pipeline::run_verification(&roots, &path);
+    let ag_section = if verify_all && report.is_ok() {
+        let ag_roots = match ag_brain {
+            Some(dir) => {
+                AntigravityRoots::new(env::current_dir().map_err(|e| e.to_string())?.join(dir))
+            }
+            None => AntigravityRoots::from_env().map_err(|e| e.to_string())?,
+        };
+        Some(pipeline::run_antigravity_verification(&ag_roots, &path))
+    } else {
+        None
+    };
     if temporary {
         let mut cleanup_error = None;
         for file in files.iter().rev() {
@@ -86,6 +107,22 @@ fn run() -> Result<bool, String> {
     if !report.report_privacy_passed {
         println!("{{\n  \"passed\": false,\n  \"report_privacy_passed\": false\n}}");
         return Ok(false);
+    }
+    if let Some(ag_res) = ag_section {
+        let ag = ag_res?;
+        let ag_ok = ag.incremental_validation_within_limit
+            && ag.incremental_no_inserts
+            && ag.metrics_consistent_across_rounds;
+        let combined = serde_json::json!({
+            "passed": report.passed && ag_ok,
+            "codex": report,
+            "antigravity": ag,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&combined).map_err(|e| e.to_string())?
+        );
+        return Ok(report.passed && ag_ok);
     }
     println!(
         "{}",
