@@ -1,0 +1,117 @@
+{
+  "$schema": "https://tokenpulse.local/schemas/design-tokens.v1.json",
+  "version": "1.0.0-draft",
+  "name": "TokenPulse Unified Design Tokens (Direct2D + WebView2)",
+  "typography": {
+    "fontFamilyUi": "'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', system-ui, sans-serif",
+    "fontFamilyDisplay": "'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei UI', system-ui, sans-serif",
+    "fontFamilyMono": "'Cascadia Mono', 'Consolas', ui-monospace, monospace",
+    "d2dFontPrimary": "Segoe UI",
+    "d2dFontCjkFallback": "Microsoft YaHei UI",
+    "scaleDip": {
+      "xs": 11,
+      "sm": 12,
+      "base": 13,
+      "md": 14,
+      "lg": 16,
+      "xl": 20,
+      "kpi": 26,
+      "hero": 30
+    }
+  },
+  "geometry": {
+    "radiusSmDip": 6,
+    "radiusMdDip": 10,
+    "radiusLgDip": 14,
+    "radiusPillDip": 999,
+    "borderWidthDip": 1,
+    "overlayCompactDip": {
+      "width": 236,
+      "height": 44,
+      "paddingX": 12,
+      "ringSize": 26,
+      "ringStroke": 3
+    },
+    "overlayExpandedDip": {
+      "width": 328,
+      "height": 236,
+      "padding": 14,
+      "barHeight": 6,
+      "rowGap": 10
+    },
+    "detailWindowMinDip": {
+      "width": 940,
+      "height": 640
+    }
+  },
+  "themes": {
+    "dark": {
+      "label": "Obsidian Slate",
+      "bgCanvas": "#0C0F14",
+      "bgSurface": "#141922",
+      "bgSurfaceElevated": "#1B2230",
+      "bgOverlayRgba": [17, 22, 31, 0.90],
+      "bgOverlayCss": "rgba(17, 22, 31, 0.90)",
+      "borderSubtle": "rgba(255, 255, 255, 0.08)",
+      "borderStrong": "rgba(255, 255, 255, 0.15)",
+      "textPrimary": "#F1F5F9",
+      "textSecondary": "#94A3B8",
+      "textMuted": "#64748B",
+      "accentCodex": "#818CF8",
+      "accentCodexSoft": "rgba(129, 140, 248, 0.16)",
+      "accentAntigravity": "#38BDF8",
+      "accentAntigravitySoft": "rgba(56, 189, 248, 0.16)",
+      "semanticOk": "#34D399",
+      "semanticOkSoft": "rgba(52, 211, 153, 0.15)",
+      "semanticWarn": "#FBBF24",
+      "semanticWarnSoft": "rgba(251, 191, 36, 0.16)",
+      "semanticDanger": "#FB7185",
+      "semanticDangerSoft": "rgba(251, 113, 133, 0.16)",
+      "semanticNeutral": "#64748B",
+      "trackBg": "rgba(148, 163, 184, 0.16)",
+      "heatmap": ["#1C2330", "#163A3A", "#145E52", "#10916F", "#34D399"],
+      "chartSeries": {
+        "cacheRead": "#34D399",
+        "nonCachedInput": "#818CF8",
+        "output": "#38BDF8",
+        "reasoning": "#C084FC"
+      },
+      "shadowOverlay": "0 14px 36px rgba(0, 0, 0, 0.55)",
+      "shadowCard": "0 4px 18px rgba(0, 0, 0, 0.28)"
+    },
+    "light": {
+      "label": "Porcelain Frost",
+      "bgCanvas": "#F4F6FA",
+      "bgSurface": "#FFFFFF",
+      "bgSurfaceElevated": "#F8FAFC",
+      "bgOverlayRgba": [255, 255, 255, 0.92],
+      "bgOverlayCss": "rgba(255, 255, 255, 0.92)",
+      "borderSubtle": "rgba(15, 23, 42, 0.08)",
+      "borderStrong": "rgba(15, 23, 42, 0.16)",
+      "textPrimary": "#0F172A",
+      "textSecondary": "#475569",
+      "textMuted": "#94A3B8",
+      "accentCodex": "#4F46E5",
+      "accentCodexSoft": "rgba(79, 70, 229, 0.11)",
+      "accentAntigravity": "#0284C7",
+      "accentAntigravitySoft": "rgba(2, 132, 199, 0.11)",
+      "semanticOk": "#059669",
+      "semanticOkSoft": "rgba(5, 150, 105, 0.12)",
+      "semanticWarn": "#D97706",
+      "semanticWarnSoft": "rgba(217, 119, 6, 0.13)",
+      "semanticDanger": "#E11D48",
+      "semanticDangerSoft": "rgba(225, 29, 72, 0.12)",
+      "semanticNeutral": "#94A3B8",
+      "trackBg": "rgba(15, 23, 42, 0.08)",
+      "heatmap": ["#E8EDF4", "#C6F0DF", "#6EE7B7", "#10B981", "#047857"],
+      "chartSeries": {
+        "cacheRead": "#059669",
+        "nonCachedInput": "#4F46E5",
+        "output": "#0284C7",
+        "reasoning": "#9333EA"
+      },
+      "shadowOverlay": "0 12px 32px rgba(15, 23, 42, 0.14)",
+      "shadowCard": "0 2px 12px rgba(15, 23, 42, 0.05)"
+    }
+  }
+}

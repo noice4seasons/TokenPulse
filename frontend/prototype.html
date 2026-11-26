@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TokenPulse — Phase 3 Visual Prototype</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <!-- Phase 3 Visual Sign-Off Harness -->
+  <header class="review-bar">
+    <div class="review-brand">
+      <img src="./assets/logo.svg" alt="TokenPulse">
+      <div>
+        <div class="review-title" data-i18n="reviewTitle"></div>
+        <div class="review-sub" data-i18n="reviewSub"></div>
+      </div>
+    </div>
+
+    <div class="review-controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label" data-i18n="themeLabel"></span>
+        <button class="seg-btn" data-bind="theme:dark" data-i18n="themeDark"></button>
+        <button class="seg-btn" data-bind="theme:light" data-i18n="themeLight"></button>
+      </div>
+
+      <div class="ctrl-group">
+        <span class="ctrl-label" data-i18n="langLabel"></span>
+        <button class="seg-btn" data-bind="lang:zh">中文</button>
+        <button class="seg-btn" data-bind="lang:en">EN</button>
+      </div>
+
+      <div class="ctrl-group">
+        <span class="ctrl-label" data-i18n="sceneLabel"></span>
+        <button class="seg-btn" data-bind="scene:normal" data-i18n="sceneNormal"></button>
+        <button class="seg-btn" data-bind="scene:expired" data-i18n="sceneExpired"></button>
+        <button class="seg-btn" data-bind="scene:restricted" data-i18n="sceneRestricted"></button>
+        <button class="seg-btn" data-bind="scene:empty" data-i18n="sceneEmpty"></button>
+      </div>
+
+      <label class="range-wrap">
+        <span data-i18n="opacityLabel"></span>
+        <input id="opacity-slider" type="range" min="30" max="100" value="92">
+        <span id="opacity-val" class="mono">92%</span>
+      </label>
+
+      <button class="seg-btn" style="border:1px solid var(--border-subtle);" data-bind="clickThrough:toggle" data-i18n="clickThrough"></button>
+    </div>
+  </header>
+
+  <main class="showcase">
+    <!-- Section 1: Desktop Overlay + Tray -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="secOverlayTitle"></h2>
+        <span class="section-note" data-i18n="secOverlayNote"></span>
+      </div>
+
+      <div class="overlay-studio">
+        <!-- Compact Capsule -->
+        <div class="overlay-col">
+          <span class="spec-tag" data-i18n="specCapsule"></span>
+          <div id="overlay-capsule" class="overlay-capsule">
+            <svg id="capsule-ring" class="capsule-ring" viewBox="0 0 28 28"></svg>
+            <div class="capsule-metrics">
+              <div class="capsule-top">
+                <span id="capsule-primary" class="capsule-primary tnum"></span>
+              </div>
+              <div id="capsule-sub" class="capsule-sub tnum"></div>
+            </div>
+            <span id="capsule-dot" class="capsule-dot"></span>
+          </div>
+        </div>
+
+        <!-- Expanded Card -->
+        <div class="overlay-col">
+          <span class="spec-tag" data-i18n="specExpanded"></span>
+          <div id="overlay-card" class="overlay-card">
+            <div class="ov-head">
+              <div class="ov-title-wrap">
+                <img src="./assets/logo.svg" alt="">
+                <span class="ov-title">TokenPulse</span>
+              </div>
+              <span id="ov-status-badge" class="badge badge-ok"></span>
+            </div>
+
+            <div id="ov-quotas" class="ov-block"></div>
+
+            <div class="ov-block">
+              <div class="ov-row">
+                <span class="ov-label" data-i18n="kpiTotal"></span>
+                <span id="ov-today-tokens" class="ov-val tnum"></span>
+              </div>
+              <div class="ov-row">
+                <span class="ov-label">
+                  <span data-i18n="latestTurn"></span> / <span data-i18n="cumulative"></span>
+                </span>
+                <span id="ov-cache-pair" class="ov-val tnum"></span>
+              </div>
+              <div class="ov-row">
+                <span class="ov-label">
+                  <span class="badge badge-ag">Antigravity</span>
+                </span>
+                <span id="ov-ag-tokens" class="ov-val tnum"></span>
+              </div>
+            </div>
+
+            <div class="ov-foot">
+              <span data-i18n="ovZeroNet"></span>
+              <div class="ov-actions">
+                <button class="ov-mini-btn" data-i18n="ovPin"></button>
+                <button class="ov-mini-btn" data-i18n="ovOpenDetail"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Original Tray Suite -->
+        <div class="overlay-col">
+          <span class="spec-tag" data-i18n="specTray"></span>
+          <div class="tray-card">
+            <div class="tray-icons-row">
+              <div class="tray-icon-cell"><img src="./assets/tray-ok.svg" alt=""><span data-i18n="trayOk"></span></div>
+              <div class="tray-icon-cell"><img src="./assets/tray-warn.svg" alt=""><span data-i18n="trayWarn"></span></div>
+              <div class="tray-icon-cell"><img src="./assets/tray-paused.svg" alt=""><span data-i18n="trayPaused"></span></div>
+              <div class="tray-icon-cell"><img src="./assets/tray-offline.svg" alt=""><span data-i18n="trayOffline"></span></div>
+            </div>
+            <div class="tray-menu">
+              <div class="tray-item"><span data-i18n="trayM1"></span><span class="mono" style="color:var(--text-muted);font-size:10px;">Enter</span></div>
+              <div class="tray-item"><span data-i18n="trayM2"></span></div>
+              <div class="tray-item muted"><span data-i18n="trayM3"></span></div>
+              <div class="tray-sep"></div>
+              <div class="tray-item"><span data-i18n="trayM4"></span></div>
+              <div class="tray-item muted"><span data-i18n="trayM5"></span></div>
+              <div class="tray-sep"></div>
+              <div class="tray-item muted"><span data-i18n="trayM6"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: On-Demand WebView2 Detail Panel -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="secDetailTitle"></h2>
+        <span class="section-note" data-i18n="secDetailNote"></span>
+      </div>
+
+      <div class="detail-window">
+        <div class="win-titlebar">
+          <div class="win-left">
+            <div class="win-logo">
+              <img src="./assets/logo.svg" alt="TokenPulse">
+              <span>TokenPulse</span>
+            </div>
+            <span class="badge badge-ok" data-i18n="privacyOffline"></span>
+            <span id="export-feedback" style="font-size:11.5px;color:var(--ok);"></span>
+          </div>
+
+          <div class="win-right">
+            <div class="ctrl-group">
+              <button class="seg-btn" data-bind="provider:all" data-i18n="filterAll"></button>
+              <button class="seg-btn" data-bind="provider:codex">Codex</button>
+              <button class="seg-btn" data-bind="provider:antigravity">Antigravity</button>
+            </div>
+            <div class="ctrl-group">
+              <button class="seg-btn" data-bind="range:today" data-i18n="rangeToday"></button>
+              <button class="seg-btn" data-bind="range:7d" data-i18n="range7d"></button>
+              <button class="seg-btn" data-bind="range:30d" data-i18n="range30d"></button>
+            </div>
+            <button id="btn-export-json" class="action-btn" data-i18n="exportJson"></button>
+            <button id="btn-export-csv" class="action-btn" data-i18n="exportCsv"></button>
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <!-- KPI Row -->
+          <div class="kpi-grid">
+            <div class="card">
+              <div class="card-head">
+                <span class="card-label" data-i18n="kpiTotal"></span>
+              </div>
+              <div id="kpi-total-val" class="kpi-value tnum"></div>
+              <div id="kpi-stack-bar" class="stack-bar"></div>
+              <div id="kpi-total-sub" class="kpi-sub tnum"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <span class="card-label" data-i18n="kpiCache"></span>
+                <span class="badge badge-neutral" data-i18n="cumulative"></span>
+              </div>
+              <div id="kpi-cache-val" class="kpi-value tnum"></div>
+              <div class="dual-cache-row">
+                <span style="color:var(--text-secondary);" data-i18n="latestTurn"></span>
+                <span id="kpi-latest-turn-val" class="mono" style="font-weight:700;"></span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <span class="card-label" data-i18n="kpiCost"></span>
+                <span class="badge badge-neutral" data-i18n="notActualBill"></span>
+              </div>
+              <div id="kpi-cost-val" class="kpi-value tnum"></div>
+              <div class="progress-track">
+                <div id="kpi-priced-bar" class="progress-fill" style="background:var(--accent-codex);width:0%;"></div>
+              </div>
+              <div class="kpi-sub">
+                <span data-i18n="pricedCoverage"></span>
+                <span id="kpi-priced-ratio" class="mono"></span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <span class="card-label" data-i18n="kpiReqs"></span>
+                <span id="kpi-coverage-badge" class="badge badge-ok"></span>
+              </div>
+              <div id="kpi-reqs-val" class="kpi-value tnum"></div>
+              <div class="kpi-sub">
+                <span class="badge badge-codex" data-i18n="codexOnlineTag"></span>
+                <span class="badge badge-ag" data-i18n="agOnlineTag"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Middle Row: Trend + Heatmap | Quotas -->
+          <div class="mid-grid">
+            <div class="card">
+              <div class="card-head">
+                <span class="card-label" style="font-weight:600;color:var(--text-primary);" data-i18n="trendTitle"></span>
+                <div class="chart-legend">
+                  <span class="legend-item"><span class="legend-swatch" style="background:var(--series-cache);"></span><span data-i18n="seriesCache"></span></span>
+                  <span class="legend-item"><span class="legend-swatch" style="background:var(--series-input);"></span><span data-i18n="seriesInput"></span></span>
+                  <span class="legend-item"><span class="legend-swatch" style="background:var(--series-output);"></span><span data-i18n="seriesOutput"></span></span>
+                </div>
+              </div>
+              <div id="trend-chart" class="chart-wrap"></div>
+
+              <div class="heatmap-wrap">
+                <div class="card-head">
+                  <span class="card-label" data-i18n="heatmapTitle"></span>
+                  <div class="hm-scale">
+                    <span data-i18n="less"></span>
+                    <span class="hm-swatch hm-lv-0"></span>
+                    <span class="hm-swatch hm-lv-1"></span>
+                    <span class="hm-swatch hm-lv-2"></span>
+                    <span class="hm-swatch hm-lv-3"></span>
+                    <span class="hm-swatch hm-lv-4"></span>
+                    <span data-i18n="more"></span>
+                  </div>
+                </div>
+                <div id="heatmap-grid" class="heatmap-grid"></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <span class="card-label" style="font-weight:600;color:var(--text-primary);" data-i18n="quotasTitle"></span>
+              </div>
+              <div id="detail-quota-stack" class="quota-stack"></div>
+            </div>
+          </div>
+
+          <!-- Bottom Row: Model Distribution Table -->
+          <div class="card">
+            <div class="card-head">
+              <span class="card-label" style="font-weight:600;color:var(--text-primary);" data-i18n="tableTitle"></span>
+            </div>
+            <div class="table-wrap">
+              <table class="model-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="colModel"></th>
+                    <th data-i18n="colProvider"></th>
+                    <th class="num" data-i18n="colReqs"></th>
+                    <th class="num" data-i18n="colInput"></th>
+                    <th class="num" data-i18n="colCache"></th>
+                    <th class="num" data-i18n="colOutput"></th>
+                    <th class="num" data-i18n="colCacheRate"></th>
+                    <th class="num" data-i18n="colCost"></th>
+                  </tr>
+                </thead>
+                <tbody id="model-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <footer class="footer-legal">
+          <span data-i18n="footerLeft"></span>
+          <span data-i18n="footerRight"></span>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <div id="floating-tip" class="floating-tip"></div>
+  <script defer src="./prototype.js"></script>
+</body>
+</html>
