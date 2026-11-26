@@ -8,7 +8,7 @@ _upstream/
 *.log
 
 # Rust build artifacts
-/target/
+target/
 **/*.rs.bk
 
 # SQLite local runtime files

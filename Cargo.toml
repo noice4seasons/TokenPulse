@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core-domain",
+    "crates/provider-codex",
+    "crates/store-sqlite",
+    "crates/scheduler",
+    "crates/app",
+]
+exclude = [
+    "tools/phase2-probes",
+]
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"

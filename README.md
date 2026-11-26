@@ -2,7 +2,7 @@
 
 面向 Windows 11 的极致轻量、安全合规的 AI 用量监控工具（首批聚焦 **OpenAI Codex** 与 **Google Antigravity**）。
 
-> 当前状态：**阶段一调查与安全审计已完成，v2.1 正式开发方案已冻结**，准备进入阶段二核心引擎与前置探针开发。
+> 当前状态：**阶段二（工具链、三大前置探针与核心数据层）已全部完成并验收通过**，准备进入阶段三视觉设计稿、Design Tokens 冻结与完整桌面界面 MVP 开发。
 
 ## 核心特点
 
@@ -14,6 +14,7 @@
 
 - 正式开发与架构蓝图（v2.1 冻结版）：[docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)
 - 阶段一源码审计与本机实测摘要：[docs/PHASE1_AUDIT_SUMMARY.md](docs/PHASE1_AUDIT_SUMMARY.md)
+- 阶段二前置探针与本机实测验收报告：[docs/PHASE2_PROBE_REPORT.md](docs/PHASE2_PROBE_REPORT.md)
 - 开源致谢与第三方许可声明：[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## 另一台电脑继续开发（快速上手）
