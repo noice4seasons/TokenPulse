@@ -6,6 +6,8 @@ members = [
     "crates/provider-antigravity",
     "crates/store-sqlite",
     "crates/scheduler",
+    "crates/ui-win32",
+    "crates/ui-detail-web",
     "crates/app",
 ]
 exclude = [

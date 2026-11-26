@@ -7,8 +7,9 @@ _upstream/
 .idea/
 *.log
 
-# Rust build artifacts
+# Rust build & release artifacts
 target/
+dist/
 **/*.rs.bk
 
 # SQLite local runtime files

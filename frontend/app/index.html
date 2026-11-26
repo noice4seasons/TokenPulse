@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TokenPulse</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="win-titlebar">
+      <div class="win-left">
+        <div class="win-logo">
+          <img src="./logo.svg" alt="TokenPulse">
+          <span>TokenPulse</span>
+        </div>
+        <span id="privacy-badge" class="badge badge-ok" data-i18n="privacyOffline"></span>
+        <span id="status-toast" class="status-toast" aria-live="polite"></span>
+      </div>
+
+      <div class="win-right">
+        <div class="ctrl-group" role="group" aria-label="Provider">
+          <button class="seg-btn" data-filter="all" data-i18n="filterAll"></button>
+          <button class="seg-btn" data-filter="codex">Codex</button>
+          <button class="seg-btn" data-filter="antigravity">Antigravity</button>
+        </div>
+        <div class="ctrl-group" role="group" aria-label="Range">
+          <button class="seg-btn" data-range="today" data-i18n="rangeToday"></button>
+          <button class="seg-btn" data-range="7d" data-i18n="range7d"></button>
+          <button class="seg-btn" data-range="30d" data-i18n="range30d"></button>
+        </div>
+        <button id="btn-refresh" class="action-btn" data-i18n="btnRefresh"></button>
+        <button id="btn-export-json" class="action-btn" data-i18n="exportJson"></button>
+        <button id="btn-export-csv" class="action-btn" data-i18n="exportCsv"></button>
+        <button id="btn-settings" class="action-btn" data-i18n="btnSettings"></button>
+      </div>
+    </header>
+
+    <main class="detail-body">
+      <!-- KPI Row -->
+      <section class="kpi-grid">
+        <article class="card">
+          <div class="card-head">
+            <span class="card-label" data-i18n="kpiTotal"></span>
+          </div>
+          <div id="kpi-total-val" class="kpi-value tnum">—</div>
+          <div id="kpi-stack-bar" class="stack-bar"></div>
+          <div id="kpi-total-sub" class="kpi-sub tnum">—</div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <span class="card-label" data-i18n="kpiCache"></span>
+            <span class="badge badge-neutral" data-i18n="cumulative"></span>
+          </div>
+          <div id="kpi-cache-val" class="kpi-value tnum">—</div>
+          <div class="dual-cache-row">
+            <span class="muted-label" data-i18n="latestTurn"></span>
+            <span id="kpi-latest-turn-val" class="mono bold-val">—</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <span class="card-label" data-i18n="kpiCost"></span>
+            <span class="badge badge-neutral" data-i18n="notActualBill"></span>
+          </div>
+          <div id="kpi-cost-val" class="kpi-value tnum">—</div>
+          <div class="progress-track">
+            <div id="kpi-priced-bar" class="progress-fill priced-fill"></div>
+          </div>
+          <div class="kpi-sub">
+            <span data-i18n="pricedCoverage"></span>
+            <span id="kpi-priced-ratio" class="mono">—</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <span class="card-label" data-i18n="kpiReqs"></span>
+            <span id="kpi-coverage-badge" class="badge badge-neutral">—</span>
+          </div>
+          <div id="kpi-reqs-val" class="kpi-value tnum">—</div>
+          <div class="kpi-sub">
+            <span class="badge badge-codex" data-i18n="codexOnlineTag"></span>
+            <span class="badge badge-ag" data-i18n="agOnlineTag"></span>
+          </div>
+        </article>
+      </section>
+
+      <!-- Middle Row: Trend + 5-Tier Heatmap | Quotas & Credits -->
+      <section class="mid-grid">
+        <article class="card">
+          <div class="card-head">
+            <span class="card-label card-label-strong" data-i18n="trendTitle"></span>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-swatch sw-cache"></span><span data-i18n="seriesCache"></span></span>
+              <span class="legend-item"><span class="legend-swatch sw-input"></span><span data-i18n="seriesInput"></span></span>
+              <span class="legend-item"><span class="legend-swatch sw-output"></span><span data-i18n="seriesOutput"></span></span>
+            </div>
+          </div>
+          <div id="trend-chart" class="chart-wrap"></div>
+
+          <div class="heatmap-wrap">
+            <div class="card-head">
+              <span class="card-label" data-i18n="heatmapTitle"></span>
+              <div class="hm-scale">
+                <span data-i18n="less"></span>
+                <span class="hm-swatch hm-lv-0"></span>
+                <span class="hm-swatch hm-lv-1"></span>
+                <span class="hm-swatch hm-lv-2"></span>
+                <span class="hm-swatch hm-lv-3"></span>
+                <span class="hm-swatch hm-lv-4"></span>
+                <span data-i18n="more"></span>
+              </div>
+            </div>
+            <div id="heatmap-grid" class="heatmap-grid"></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <span class="card-label card-label-strong" data-i18n="quotasTitle"></span>
+            <span id="updated-at" class="mono muted-xs"></span>
+          </div>
+          <div id="detail-quota-stack" class="quota-stack"></div>
+        </article>
+      </section>
+
+      <!-- Bottom Row: Model Distribution -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-label card-label-strong" data-i18n="tableTitle"></span>
+          <span id="table-count" class="mono muted-xs"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="model-table">
+            <thead>
+              <tr>
+                <th data-i18n="colModel"></th>
+                <th data-i18n="colProvider"></th>
+                <th class="num" data-i18n="colReqs"></th>
+                <th class="num" data-i18n="colInput"></th>
+                <th class="num" data-i18n="colCache"></th>
+                <th class="num" data-i18n="colOutput"></th>
+                <th class="num" data-i18n="colCacheRate"></th>
+                <th class="num" data-i18n="colCost"></th>
+              </tr>
+            </thead>
+            <tbody id="model-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-legal">
+      <span data-i18n="footerLeft"></span>
+      <span data-i18n="footerRight"></span>
+    </footer>
+  </div>
+
+  <!-- Settings Drawer (Native-synced Config) -->
+  <div id="settings-backdrop" class="drawer-backdrop hidden">
+    <aside class="drawer" role="dialog" aria-modal="true">
+      <div class="drawer-head">
+        <span class="drawer-title" data-i18n="settingsTitle"></span>
+        <button id="btn-close-settings" class="action-btn">✕</button>
+      </div>
+      <div class="drawer-body">
+        <div class="setting-row">
+          <span data-i18n="themeLabel"></span>
+          <div class="ctrl-group">
+            <button class="seg-btn" data-cfg-theme="Dark" data-i18n="themeDark"></button>
+            <button class="seg-btn" data-cfg-theme="Light" data-i18n="themeLight"></button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span data-i18n="langLabel"></span>
+          <div class="ctrl-group">
+            <button class="seg-btn" data-cfg-lang="ZhCn">简体中文</button>
+            <button class="seg-btn" data-cfg-lang="EnUs">English</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span data-i18n="opacityLabel"></span>
+          <div class="range-inline">
+            <input id="cfg-opacity" type="range" min="30" max="100" value="90">
+            <span id="cfg-opacity-val" class="mono">90%</span>
+          </div>
+        </div>
+        <label class="setting-toggle">
+          <span data-i18n="cfgAlwaysOnTop"></span>
+          <input id="cfg-topmost" type="checkbox">
+        </label>
+        <label class="setting-toggle">
+          <span data-i18n="cfgClickThrough"></span>
+          <input id="cfg-clickthrough" type="checkbox">
+        </label>
+        <label class="setting-toggle">
+          <span data-i18n="cfgStartOnLogin"></span>
+          <input id="cfg-autostart" type="checkbox">
+        </label>
+        <div class="setting-row">
+          <span data-i18n="cfgLowThreshold"></span>
+          <div class="range-inline">
+            <input id="cfg-threshold" type="range" min="5" max="40" step="5" value="10">
+            <span id="cfg-threshold-val" class="mono">10%</span>
+          </div>
+        </div>
+        <div class="honest-note" data-i18n="privacyBoundaryNote"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="floating-tip" class="floating-tip"></div>
+  <script defer src="./app.js"></script>
+</body>
+</html>

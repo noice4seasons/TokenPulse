@@ -8,7 +8,24 @@ tokenpulse-core-domain = { path = "../core-domain" }
 tokenpulse-provider-codex = { path = "../provider-codex" }
 tokenpulse-provider-antigravity = { path = "../provider-antigravity" }
 tokenpulse-store-sqlite = { path = "../store-sqlite" }
+tokenpulse-scheduler = { path = "../scheduler" }
+tokenpulse-ui-win32 = { path = "../ui-win32" }
+tokenpulse-ui-detail-web = { path = "../ui-detail-web" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 hex = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.58.0", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }

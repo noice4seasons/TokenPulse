@@ -1,6 +1,6 @@
 {
   "$schema": "https://tokenpulse.local/schemas/design-tokens.v1.json",
-  "version": "1.0.0-draft",
+  "version": "1.0.0-frozen",
   "name": "TokenPulse Unified Design Tokens (Direct2D + WebView2)",
   "typography": {
     "fontFamilyUi": "'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', system-ui, sans-serif",
