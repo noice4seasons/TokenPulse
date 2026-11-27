@@ -1,4 +1,4 @@
-use crate::{localized, Language};
+use crate::{localized, DisplayPlacement, Language};
 use std::{mem::size_of, ptr::null_mut};
 use tokenpulse_core_domain::{
     models::ProviderId,
@@ -24,6 +24,7 @@ pub enum TrayIconState {
 pub enum TrayCommand {
     OpenDetail,
     ToggleOverlay,
+    SetPlacement(DisplayPlacement),
     ToggleOverlayMode,
     ToggleClickThrough,
     RefreshNow,
@@ -36,6 +37,7 @@ pub enum TrayCommand {
 #[derive(Clone, Copy, Default)]
 pub struct TrayMenuState {
     pub overlay_visible: bool,
+    pub placement: DisplayPlacement,
     pub click_through: bool,
     pub paused: bool,
     pub autostart: bool,
@@ -349,57 +351,94 @@ impl TrayHost {
         }
     }
     pub fn popup(&self, point: POINT, flags: TrayMenuState) -> Result<Option<TrayCommand>> {
+        use DisplayPlacement::*;
         use TrayCommand::*;
+        enum Item {
+            Sep,
+            Cmd(TrayCommand, &'static str, &'static str, bool),
+        }
         unsafe {
             let menu = Menu(CreatePopupMenu()?);
             let entries = [
-                (OpenDetail, "打开详情", "Open detail", false),
-                (
+                Item::Cmd(OpenDetail, "打开详情面板", "Open detail dashboard", false),
+                Item::Cmd(
                     ToggleOverlay,
-                    "显示悬浮窗",
-                    "Show overlay",
+                    "显示状态栏 / 组件",
+                    "Show status widget",
                     flags.overlay_visible,
                 ),
-                (
+                Item::Sep,
+                Item::Cmd(
+                    SetPlacement(Taskbar),
+                    "任务栏模式（贴靠任务栏）",
+                    "Taskbar dock mode",
+                    flags.placement == Taskbar,
+                ),
+                Item::Cmd(
+                    SetPlacement(DesktopWidget),
+                    "桌面组件模式（贴底不挡窗口）",
+                    "Desktop widget (pinned to desktop)",
+                    flags.placement == DesktopWidget,
+                ),
+                Item::Cmd(
+                    SetPlacement(Floating),
+                    "悬浮窗模式（自由置顶）",
+                    "Floating overlay (on top)",
+                    flags.placement == Floating,
+                ),
+                Item::Sep,
+                Item::Cmd(
                     ToggleOverlayMode,
-                    "切换悬浮窗形态",
-                    "Switch overlay mode",
+                    "切换紧凑 / 展开卡片",
+                    "Switch compact / expanded",
                     false,
                 ),
-                (
+                Item::Cmd(
                     ToggleClickThrough,
-                    "点击穿透",
-                    "Click through",
+                    "悬浮窗点击穿透",
+                    "Overlay click-through",
                     flags.click_through,
                 ),
-                (RefreshNow, "立即刷新", "Refresh now", false),
-                (TogglePause, "暂停监控", "Pause monitoring", flags.paused),
-                (ToggleTheme, "切换主题", "Switch theme", false),
-                (
+                Item::Sep,
+                Item::Cmd(RefreshNow, "立即刷新", "Refresh now", false),
+                Item::Cmd(TogglePause, "暂停监控", "Pause monitoring", flags.paused),
+                Item::Cmd(ToggleTheme, "切换深色 / 浅色主题", "Switch theme", false),
+                Item::Cmd(
                     ToggleLanguage,
                     "切换语言 / Language",
                     "Language / 切换语言",
                     false,
                 ),
-                (
+                Item::Cmd(
                     ToggleAutostart,
                     "开机自启",
                     "Start on login",
                     flags.autostart,
                 ),
-                (Exit, "退出", "Exit", false),
+                Item::Sep,
+                Item::Cmd(Exit, "退出", "Exit", false),
             ];
-            for (index, (_, zh, en, checked)) in entries.iter().enumerate() {
-                let text: Vec<_> = localized(self.language, zh, en)
-                    .encode_utf16()
-                    .chain(Some(0))
-                    .collect();
-                AppendMenuW(
-                    menu.0,
-                    MF_STRING | if *checked { MF_CHECKED } else { MF_UNCHECKED },
-                    index + 1,
-                    PCWSTR(text.as_ptr()),
-                )?;
+            let mut commands = Vec::new();
+            for item in &entries {
+                match item {
+                    Item::Sep => {
+                        AppendMenuW(menu.0, MF_SEPARATOR, 0, PCWSTR::null())?;
+                    }
+                    Item::Cmd(cmd, zh, en, checked) => {
+                        commands.push(*cmd);
+                        let id = commands.len();
+                        let text: Vec<_> = localized(self.language, zh, en)
+                            .encode_utf16()
+                            .chain(Some(0))
+                            .collect();
+                        AppendMenuW(
+                            menu.0,
+                            MF_STRING | if *checked { MF_CHECKED } else { MF_UNCHECKED },
+                            id,
+                            PCWSTR(text.as_ptr()),
+                        )?;
+                    }
+                }
             }
             let _ = SetForegroundWindow(self.owner);
             let id = TrackPopupMenuEx(
@@ -414,8 +453,8 @@ impl TrayHost {
             let _ = PostMessageW(self.owner, WM_NULL, WPARAM(0), LPARAM(0));
             Ok(id
                 .checked_sub(1)
-                .and_then(|index| entries.get(index as usize))
-                .map(|entry| entry.0))
+                .and_then(|index| commands.get(index as usize))
+                .copied())
         }
     }
 }

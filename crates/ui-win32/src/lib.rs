@@ -7,7 +7,7 @@ pub use autostart::*;
 pub use overlay::*;
 pub use power::*;
 pub use tokenpulse_core_domain::{
-    config::{Language, Theme},
+    config::{DisplayPlacement, Language, Theme},
     dto::OverlaySnapshotDto,
 };
 pub use tokens::*;

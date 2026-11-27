@@ -348,7 +348,8 @@ mod tests {
     #[test]
     fn config_clamps_both_ends() {
         let mut c = AppConfig::default();
-        assert!(!c.antigravity.enabled);
+        assert!(c.antigravity.enabled);
+        assert_eq!(c.display_placement, DisplayPlacement::Taskbar);
         assert_eq!(c.antigravity.poll_interval_secs, 90);
         for (n, expected) in [(0, (30, 60, 0, 1)), (u32::MAX, (100, 300, 100, 1440))] {
             c.overlay_opacity_pct = n;

@@ -9,6 +9,13 @@ pub enum Language {
     ZhCn,
     EnUs,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum DisplayPlacement {
+    #[default]
+    Taskbar,
+    DesktopWidget,
+    Floating,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CodexConfig {
@@ -25,6 +32,7 @@ pub struct AntigravityConfig {
 pub struct AppConfig {
     pub theme: Theme,
     pub language: Language,
+    pub display_placement: DisplayPlacement,
     pub overlay_opacity_pct: u32,
     pub always_on_top: bool,
     pub click_through: bool,
@@ -39,13 +47,14 @@ impl Default for AppConfig {
         Self {
             theme: Theme::Dark,
             language: Language::ZhCn,
+            display_placement: DisplayPlacement::Taskbar,
             overlay_opacity_pct: 90,
             always_on_top: true,
             click_through: false,
             start_on_login: false,
             codex: CodexConfig { enabled: true },
             antigravity: AntigravityConfig {
-                enabled: false,
+                enabled: true,
                 poll_interval_secs: 90,
             },
             low_quota_threshold_pct: 10,

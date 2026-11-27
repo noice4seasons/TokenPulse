@@ -60,6 +60,8 @@ pub struct OverlaySnapshotDto {
     #[serde(with = "version")]
     pub protocol_version: u32,
     pub codex: Vec<QuotaBarDto>,
+    #[serde(default)]
+    pub codex_plan_type: Option<String>,
     pub antigravity: Vec<QuotaBarDto>,
     pub today_tokens: Option<u64>,
     pub today_coverage: Coverage,

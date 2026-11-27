@@ -1,7 +1,7 @@
 # 阶段二高风险前置探针实机验收报告与架构裁决
 
 > **测试环境**：Windows 11 x64 Build `26300.9032`（26H2）｜Rust `1.100.0` (`x86_64-pc-windows-msvc`)｜MSVC `14.44.35207`｜Windows 11 SDK `10.0.26100.0`  
-> **探针代码位置**：[tools/phase2-probes](file:///d:/软件开发/04_WhereMyTokens%20Lite/tools/phase2-probes/Cargo.toml)（Release 构建）  
+> **探针代码位置**：[tools/phase2-probes](../tools/phase2-probes/Cargo.toml)（Release 构建）  
 > **测试日期**：2026-11-26
 
 ---
@@ -10,9 +10,9 @@
 
 | 探针 | 目标与核心风险 | 实机关键指标 | 结果与裁决 |
 |---|---|---|---|
-| **探针 A**：[probe_antigravity.rs](file:///d:/软件开发/04_WhereMyTokens%20Lite/tools/phase2-probes/src/bin/probe_antigravity.rs) | 非提权 Win32 进程/端口核验 + 本地 TLS 验证材料可行性 | 发现与核验耗时 **`5 ms`**；PID/Session/User SID/路径/`GetExtendedTcpTable` 监听归属全部跑通；本机 Antigravity 2.35.2 无 `--csrf_token` 命令行参数、无 Authenticode 签名（`TRUST_E_NOSIGNATURE`）、回环 HTTPS 端口使用内置自签证书（`OU=bundled on purpose, O=ENABLES HTTP2, CN=localhost`）且无外部独立证书文件 | **非提权核验通过；按方案第 8.1 节裁定 V1 将 Antigravity 置于安全 `TlsUntrusted / Unsupported` 不可用或缓存态**，绝不降级明文、绝不盲信自签，不阻塞 Codex V1 交付 |
-| **探针 B**：[probe_webview2.rs](file:///d:/软件开发/04_WhereMyTokens%20Lite/tools/phase2-probes/src/bin/probe_webview2.rs) | 同进程 UI STA 专属 `UserDataFolder` WebView2 连续 10 轮开关回收、创建中代次取消、缺 Runtime 降级 | WebView2 Runtime `131.0.2903.86`；10 轮均触发 `BrowserProcessExited`（打开 **`279~289 ms`**，首轮 `883 ms`；关闭退出 **`162~193 ms`**）；宿主 `Private Bytes` 稳定在 **`2.14~2.25 MB`**（零单调泄露），`Working Set` **`14.20~14.32 MB`**；代次取消丢弃迟到回调并 `164 ms` 退出进程；UDF 目录无锁清空；缺 Runtime 返回明确 `0x80070002` 无崩溃 | **`passed: true`（满分通过）**。裁定正式版直接采用 **同进程 UI STA 宿主方案**，无需拆 `--detail-host` 子进程 |
-| **探针 C**：[probe_overlay.rs](file:///d:/软件开发/04_WhereMyTokens%20Lite/tools/phase2-probes/src/bin/probe_overlay.rs) | Direct3D11 + Direct2D + DirectWrite + DirectComposition 悬浮窗合成、透明度、点击穿透、零帧空转与内存占用 | `driver_type: "hardware"`；首帧 **`107 ms`**；`opacity_supported: true`（DirectComposition EffectGroup）；`click_through_toggled: true`（`WS_EX_TRANSPARENT`）；3 秒空闲期 **`idle_commits = 0`**（总提交 `2` 帧 = 首帧 + 1 次模拟数据更新）；`Private Bytes` **`14.46 MB`**，`Working Set` **`34.17 MB`**（低于 `< 40 MB` 硬线） | **`passed: true`（满分通过）**。裁定正式版锁定 **Direct2D/DirectWrite + DirectComposition 主渲染路径** |
+| **探针 A**：[probe_antigravity.rs](../tools/phase2-probes/src/bin/probe_antigravity.rs) | 非提权 Win32 进程/端口核验 + 本地 TLS 验证材料可行性 | 发现与核验耗时 **`5 ms`**；PID/Session/User SID/路径/`GetExtendedTcpTable` 监听归属全部跑通；本机 Antigravity 2.35.2 无 `--csrf_token` 命令行参数、无 Authenticode 签名（`TRUST_E_NOSIGNATURE`）、回环 HTTPS 端口使用内置自签证书（`OU=bundled on purpose, O=ENABLES HTTP2, CN=localhost`）且无外部独立证书文件 | **非提权核验通过；按方案第 8.1 节裁定 V1 将 Antigravity 置于安全 `TlsUntrusted / Unsupported` 不可用或缓存态**，绝不降级明文、绝不盲信自签，不阻塞 Codex V1 交付 |
+| **探针 B**：[probe_webview2.rs](../tools/phase2-probes/src/bin/probe_webview2.rs) | 同进程 UI STA 专属 `UserDataFolder` WebView2 连续 10 轮开关回收、创建中代次取消、缺 Runtime 降级 | WebView2 Runtime `131.0.2903.86`；10 轮均触发 `BrowserProcessExited`（打开 **`279~289 ms`**，首轮 `883 ms`；关闭退出 **`162~193 ms`**）；宿主 `Private Bytes` 稳定在 **`2.14~2.25 MB`**（零单调泄露），`Working Set` **`14.20~14.32 MB`**；代次取消丢弃迟到回调并 `164 ms` 退出进程；UDF 目录无锁清空；缺 Runtime 返回明确 `0x80070002` 无崩溃 | **`passed: true`（满分通过）**。裁定正式版直接采用 **同进程 UI STA 宿主方案**，无需拆 `--detail-host` 子进程 |
+| **探针 C**：[probe_overlay.rs](../tools/phase2-probes/src/bin/probe_overlay.rs) | Direct3D11 + Direct2D + DirectWrite + DirectComposition 悬浮窗合成、透明度、点击穿透、零帧空转与内存占用 | `driver_type: "hardware"`；首帧 **`107 ms`**；`opacity_supported: true`（DirectComposition EffectGroup）；`click_through_toggled: true`（`WS_EX_TRANSPARENT`）；3 秒空闲期 **`idle_commits = 0`**（总提交 `2` 帧 = 首帧 + 1 次模拟数据更新）；`Private Bytes` **`14.46 MB`**，`Working Set` **`34.17 MB`**（低于 `< 40 MB` 硬线） | **`passed: true`（满分通过）**。裁定正式版锁定 **Direct2D/DirectWrite + DirectComposition 主渲染路径** |
 
 ---
 

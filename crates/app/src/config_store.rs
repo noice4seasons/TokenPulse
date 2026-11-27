@@ -5,7 +5,9 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
-use tokenpulse_core_domain::config::AppConfig;
+use tokenpulse_core_domain::config::{AppConfig, DisplayPlacement};
+
+const CURRENT_CONFIG_SCHEMA: u32 = 2;
 
 pub struct AppPaths {
     #[allow(dead_code)]
@@ -41,6 +43,7 @@ pub struct PersistedState {
     pub overlay_visible: bool,
     pub overlay_compact: bool,
     pub overlay_pos: Option<(i32, i32)>,
+    pub config_schema_version: u32,
 }
 
 impl Default for PersistedState {
@@ -50,16 +53,28 @@ impl Default for PersistedState {
             overlay_visible: true,
             overlay_compact: true,
             overlay_pos: None,
+            config_schema_version: CURRENT_CONFIG_SCHEMA,
         }
     }
 }
 
 pub fn load_state(path: &Path) -> PersistedState {
-    let mut state: PersistedState = fs::read(path)
-        .ok()
+    let raw = fs::read(path).ok();
+    let existed = raw.is_some();
+    let mut state: PersistedState = raw
         .and_then(|data| serde_json::from_slice(&data).ok())
         .unwrap_or_default();
-    state.config = state.config.sanitized();
+    if existed && state.config_schema_version < CURRENT_CONFIG_SCHEMA {
+        // V1.0 defaulted offline Antigravity to false with no UI switch and had only Floating mode.
+        state.config.antigravity.enabled = true;
+        state.config.display_placement = DisplayPlacement::Taskbar;
+        state.config_schema_version = CURRENT_CONFIG_SCHEMA;
+        state.config = state.config.sanitized();
+        let _ = save_state(path, &state);
+    } else {
+        state.config_schema_version = CURRENT_CONFIG_SCHEMA;
+        state.config = state.config.sanitized();
+    }
     state
 }
 

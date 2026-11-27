@@ -17,13 +17,16 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tokenpulse_core_domain::{
-    config::{AppConfig, Language, Theme},
+    config::{AppConfig, DisplayPlacement, Language, Theme},
     dto::{
         Coverage, DashboardSnapshotDto, OverlaySnapshotDto, PrivacyBadge, QuotaBarDto,
         PROTOCOL_VERSION,
     },
     models::ProviderId,
-    quota::{should_alert_low_quota, ProviderAvailability, QuotaObservation},
+    quota::{
+        should_alert_low_quota, ProviderAvailability, QuotaObservation, QuotaPeriodKind,
+        QuotaWindowState,
+    },
 };
 use tokenpulse_provider_antigravity::{AntigravityRoots, AntigravityScanner};
 use tokenpulse_provider_codex::CodexRoots;
@@ -35,8 +38,10 @@ use tokenpulse_scheduler::{
 use tokenpulse_store_sqlite::{ExactRange, ExportFormat, StoreHandle, TimeZoneSpec};
 use tokenpulse_ui_detail_web::{DetailHostError, DetailWindowHost, HostCommand};
 use tokenpulse_ui_win32::{
-    self as native, OverlayMode, OverlayWindow, PowerSessionEvent, TrayCommand, TrayHost,
-    TrayIconState, TrayMenuState, TRAY_MESSAGE,
+    self as native, format_reset_duration, is_pro_plan, OverlayMode, OverlayWindow,
+    PowerSessionEvent, TrayCommand, TrayHost, TrayIconState, TrayMenuState,
+    OVERLAY_ACTION_CONTEXT_MENU, OVERLAY_ACTION_MODE_TOGGLED, OVERLAY_ACTION_OPEN_DETAIL,
+    TRAY_MESSAGE,
 };
 use windows::{
     core::{w, Error, HSTRING},
@@ -56,6 +61,7 @@ use windows::{
 };
 
 const WM_SYNC_DONE: u32 = WM_APP + 0x42;
+const WM_OVERLAY_ACTION: u32 = WM_APP + 0x43;
 const TRAY_ID: u16 = 1;
 const FALLBACK: Duration = Duration::from_secs(60);
 const BENCH_TIMER: usize = 1;
@@ -165,6 +171,12 @@ fn cached_frame(store: &StoreHandle, now: i64) -> AppResult<Frame> {
             .map(|c| c.scope_id),
     };
     quotas.retain(|q| Some(&q.scope_id) == scope.as_ref());
+    let codex_plan_type = store
+        .latest_credits(Some(ProviderId::Codex), scope.clone())
+        .map_err(err)?
+        .into_iter()
+        .max_by_key(|c| c.event_time_ms.unwrap_or(c.ingested_at_ms))
+        .and_then(|c| c.plan_type);
     let metrics = today.metrics;
     let prompt =
         u128::from(metrics.non_cached_input_tokens) + u128::from(metrics.cache_read_tokens);
@@ -180,6 +192,7 @@ fn cached_frame(store: &StoreHandle, now: i64) -> AppResult<Frame> {
                 account_confirmed: q.account_confirmed,
             })
             .collect(),
+        codex_plan_type,
         antigravity: Vec::new(),
         today_tokens: (today.coverage != Coverage::Unknown).then_some(metrics.total_tokens),
         today_coverage: today.coverage,
@@ -257,6 +270,7 @@ enum Event {
     Export(u64, Arc<AtomicBool>, ExportFormat, Box<ExactRange>),
     Web(u64, HostCommand),
     Tray(isize),
+    OverlayAction(usize),
     Open,
     Power,
     Exit,
@@ -538,6 +552,8 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
         };
         let event = if msg == TRAY_MESSAGE {
             Event::Tray(lp.0)
+        } else if msg == WM_OVERLAY_ACTION {
+            Event::OverlayAction(wp.0)
         } else if msg != 0 && msg == route.activate {
             Event::Open
         } else if msg == WM_CLOSE {
@@ -689,7 +705,9 @@ impl Desktop {
     fn setup_overlay(&mut self) -> AppResult<()> {
         if !self.state.overlay_visible {
             if let Some(o) = &self.overlay {
-                self.state.overlay_pos = Some(o.position().map_err(err)?);
+                if self.state.config.display_placement != DisplayPlacement::Taskbar {
+                    self.state.overlay_pos = Some(o.position().map_err(err)?);
+                }
             }
             self.overlay.take();
             return Ok(());
@@ -697,7 +715,9 @@ impl Desktop {
         let mode = self.mode();
         let fresh = self.overlay.is_none();
         if fresh {
-            self.overlay = Some(OverlayWindow::create(mode, self.state.overlay_pos).map_err(err)?);
+            let created = OverlayWindow::create(mode, self.state.overlay_pos).map_err(err)?;
+            created.set_action_host(self.hwnd, WM_OVERLAY_ACTION);
+            self.overlay = Some(created);
         }
         let o = self.overlay.as_ref().unwrap();
         let config = &self.state.config;
@@ -707,6 +727,7 @@ impl Desktop {
         o.set_topmost(config.always_on_top).map_err(err)?;
         o.set_click_through(config.click_through).map_err(err)?;
         o.set_opacity(config.overlay_opacity_pct).map_err(err)?;
+        o.set_placement(config.display_placement).map_err(err)?;
         self.paint_overlay()?;
         if fresh {
             o.show().map_err(err)?;
@@ -719,7 +740,12 @@ impl Desktop {
             if !self.state.config.codex.enabled {
                 dto.codex.clear();
             }
-            o.update_snapshot_with_offline_tokens(dto, f.ag_today_tokens)
+            let ag = if self.state.config.antigravity.enabled {
+                f.ag_today_tokens
+            } else {
+                None
+            };
+            o.update_snapshot_with_offline_tokens(dto, ag)
                 .map_err(err)?;
         }
         Ok(())
@@ -730,20 +756,42 @@ impl Desktop {
         let now = now_ms();
         let threshold = f64::from(cfg.low_quota_threshold_pct);
         let mut status = TrayIconState::Offline;
-        let mut tooltip = String::new();
+        let mut lines = Vec::new();
         if let Some(f) = &self.frame {
-            if let Some(tokens) = f.overlay.today_tokens {
-                let label = if cfg.language == Language::ZhCn {
-                    "今日 (UTC)"
-                } else {
-                    "Today (UTC)"
-                };
-                tooltip = format!("{label} · {tokens} tokens");
-                status = TrayIconState::Healthy;
-            }
+            let hide_5h = is_pro_plan(f.overlay.codex_plan_type.as_deref());
             if cfg.codex.enabled && !f.quotas.is_empty() {
-                status = if f
+                let relevant: Vec<_> = f
                     .quotas
+                    .iter()
+                    .filter(|q| !(hide_5h && q.period_kind == QuotaPeriodKind::FiveHour))
+                    .collect();
+                for q in &relevant {
+                    let period = match q.period_kind {
+                        QuotaPeriodKind::FiveHour => "5h",
+                        QuotaPeriodKind::Weekly => "7d",
+                        QuotaPeriodKind::Unknown(_) => continue,
+                    };
+                    if let QuotaWindowState::Active {
+                        remaining_pct,
+                        resets_in_ms,
+                        ..
+                    } = q.window_state(now)
+                    {
+                        let reset_part = resets_in_ms
+                            .filter(|ms| *ms > 0)
+                            .map(|ms| {
+                                let dur = format_reset_duration(ms, cfg.language);
+                                if cfg.language == Language::ZhCn {
+                                    format!(" · {dur}后重置")
+                                } else {
+                                    format!(" · {dur}")
+                                }
+                            })
+                            .unwrap_or_default();
+                        lines.push(format!("Codex {period}: {remaining_pct:.0}%{reset_part}"));
+                    }
+                }
+                status = if relevant
                     .iter()
                     .any(|q| should_alert_low_quota(q, threshold, now))
                 {
@@ -752,7 +800,19 @@ impl Desktop {
                     TrayIconState::Healthy
                 };
             }
+            if let Some(tokens) = f.overlay.today_tokens {
+                let label = if cfg.language == Language::ZhCn {
+                    "今日"
+                } else {
+                    "Today"
+                };
+                lines.push(format!("{label}: {tokens} tokens"));
+                if status == TrayIconState::Offline {
+                    status = TrayIconState::Healthy;
+                }
+            }
         }
+        let tooltip = lines.join("\n");
         if !active {
             status = TrayIconState::Paused;
         }
@@ -763,7 +823,11 @@ impl Desktop {
             let _ = tray.update(status, cfg.language, &tooltip);
             if active && cfg.codex.enabled && !self.bench {
                 if let Some(f) = &self.frame {
+                    let hide_5h = is_pro_plan(f.overlay.codex_plan_type.as_deref());
                     for q in &f.quotas {
+                        if hide_5h && q.period_kind == QuotaPeriodKind::FiveHour {
+                            continue;
+                        }
                         let _ = tray.notify_low_quota(
                             q,
                             threshold,
@@ -781,7 +845,9 @@ impl Desktop {
             return Ok(());
         }
         if let Some(o) = &self.overlay {
-            self.state.overlay_pos = Some(o.position().map_err(err)?);
+            if self.state.config.display_placement != DisplayPlacement::Taskbar {
+                self.state.overlay_pos = Some(o.position().map_err(err)?);
+            }
         }
         save_state(&self.paths.config_path, &self.state)
     }
@@ -930,6 +996,13 @@ impl Desktop {
                 return Ok(true);
             }
             TrayCommand::ToggleOverlay => next.overlay_visible = !next.overlay_visible,
+            TrayCommand::SetPlacement(placement) => {
+                next.config.display_placement = placement;
+                next.overlay_visible = true;
+                if placement == DisplayPlacement::DesktopWidget {
+                    next.overlay_compact = false;
+                }
+            }
             TrayCommand::ToggleOverlayMode => next.overlay_compact = !next.overlay_compact,
             TrayCommand::ToggleClickThrough => {
                 next.config.click_through = !next.config.click_through
@@ -953,16 +1026,20 @@ impl Desktop {
         self.apply(next)?;
         Ok(true)
     }
+    fn menu_flags(&self) -> TrayMenuState {
+        TrayMenuState {
+            overlay_visible: self.state.overlay_visible,
+            placement: self.state.config.display_placement,
+            click_through: self.state.config.click_through,
+            paused: self.paused,
+            autostart: self.state.config.start_on_login,
+        }
+    }
     fn tray_click(&mut self, lp: isize) -> AppResult<bool> {
         if (lp >> 16) as u16 != TRAY_ID {
             return Ok(true);
         }
-        let flags = TrayMenuState {
-            overlay_visible: self.state.overlay_visible,
-            click_through: self.state.config.click_through,
-            paused: self.paused,
-            autostart: self.state.config.start_on_login,
-        };
+        let flags = self.menu_flags();
         let cmd = match lp as u16 as u32 {
             // NOTIFYICON_VERSION_4 delivers NIN_SELECT and NIN_KEYSELECT.
             NIN_SELECT | 0x401 | WM_LBUTTONUP | WM_LBUTTONDBLCLK => Some(TrayCommand::OpenDetail),
@@ -987,6 +1064,33 @@ impl Desktop {
         }
         Ok(true)
     }
+    fn overlay_action(&mut self, action: usize) -> AppResult<bool> {
+        match action {
+            OVERLAY_ACTION_OPEN_DETAIL => {
+                self.open_detail()?;
+            }
+            OVERLAY_ACTION_CONTEXT_MENU => {
+                let mut point = POINT::default();
+                unsafe {
+                    GetCursorPos(&mut point).map_err(err)?;
+                }
+                let flags = self.menu_flags();
+                let cmd = match &self.tray {
+                    Some(tray) => tray.popup(point, flags).map_err(err)?,
+                    None => None,
+                };
+                if let Some(cmd) = cmd {
+                    return self.command(cmd);
+                }
+            }
+            OVERLAY_ACTION_MODE_TOGGLED => {
+                self.state.overlay_compact = !self.state.overlay_compact;
+                self.persist()?;
+            }
+            _ => {}
+        }
+        Ok(true)
+    }
     fn web(&mut self, cmd: HostCommand) -> AppResult<()> {
         match cmd {
             HostCommand::Ready => {
@@ -1007,7 +1111,15 @@ impl Desktop {
             }
             HostCommand::UpdateConfig(config) => {
                 let mut next = self.state.clone();
+                let placement_changed =
+                    config.display_placement != next.config.display_placement;
                 next.config = config;
+                if placement_changed {
+                    next.overlay_visible = true;
+                    if next.config.display_placement == DisplayPlacement::DesktopWidget {
+                        next.overlay_compact = false;
+                    }
+                }
                 self.apply(next)?;
             }
             HostCommand::ToggleOverlay => {
@@ -1068,6 +1180,7 @@ impl Desktop {
                 self.web(cmd)?
             }
             Event::Tray(lp) if !self.bench => return self.tray_click(lp),
+            Event::OverlayAction(action) if !self.bench => return self.overlay_action(action),
             Event::Open if !self.bench => self.open_detail()?,
             Event::Power => self.tray_status()?,
             Event::Exit => return Ok(false),

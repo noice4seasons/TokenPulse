@@ -31,11 +31,14 @@
       seriesOutput: '输出',
       quotasTitle: '平台额度与 Credits 状态',
       accountUnconfirmed: '最近会话观测（账号未确认）',
-      agOfflineNotice: 'Antigravity 离线日志采集已启用（零凭据/零正文）；本地自签 RPC 按安全红线保持关闭。',
+      agOfflineNotice: 'Antigravity 纯离线日志统计已就绪（只统计本地 Token，零凭据/零正文；本地日志不含官方剩余额度百分比）。',
+      agDisabledNotice: 'Antigravity 离线日志采集已关闭，可在右上角「设置」中开启。',
       awaitingReset: '已到预计重置时间，等待新活动（绝不自动补满 100%）',
       planRestrictedPrefix: '当前套餐无权限：',
       noData: '暂无数据',
       creditsLabel: 'Credits / 套餐',
+      quota5h: '5小时窗口 (5h)',
+      quota7d: '7天周额度 (7d)',
       tableTitle: '模型使用分布',
       colModel: '模型',
       colProvider: '平台',
@@ -57,9 +60,15 @@
       themeDark: '黑曜石',
       themeLight: '青瓷霜',
       langLabel: '显示语言',
-      opacityLabel: '悬浮窗透明度',
+      placementLabel: '展示形态',
+      placeTaskbar: '任务栏',
+      placeDesktop: '桌面组件',
+      placeFloating: '悬浮窗',
+      opacityLabel: '不透明度',
+      cfgCodexEnabled: '监控 Codex 离线日志',
+      cfgAgEnabled: '监控 Antigravity 离线日志',
       cfgAlwaysOnTop: '悬浮窗始终置顶',
-      cfgClickThrough: '悬浮窗整窗点击穿透',
+      cfgClickThrough: '悬浮窗点击穿透（仅悬浮窗生效）',
       cfgStartOnLogin: 'Windows 开机自启动',
       cfgLowThreshold: '低额度告警阈值',
       privacyBoundaryNote: '安全边界：本应用零外网请求、零遥测，不读取 auth.json 或对话正文；所有导出均由原生侧脱敏写盘。',
@@ -98,11 +107,14 @@
       seriesOutput: 'Output',
       quotasTitle: 'Quotas & Credits Status',
       accountUnconfirmed: 'Recent local session (account unconfirmed)',
-      agOfflineNotice: 'Antigravity offline transcript metrics active (zero credentials/body). Self-signed RPC stays disabled.',
+      agOfflineNotice: 'Antigravity offline transcript tracking is active (tokens only, zero credentials/body; local logs do not include official quota %).',
+      agDisabledNotice: 'Antigravity offline tracking is disabled. Enable it in Settings.',
       awaitingReset: 'Reset time reached — awaiting new activity (never auto-filled to 100%)',
       planRestrictedPrefix: 'Plan restricted: ',
       noData: 'No Data',
       creditsLabel: 'Credits / Plan',
+      quota5h: '5h Window',
+      quota7d: '7d Weekly',
       tableTitle: 'Model Distribution',
       colModel: 'Model',
       colProvider: 'Provider',
@@ -124,9 +136,15 @@
       themeDark: 'Obsidian',
       themeLight: 'Porcelain',
       langLabel: 'Language',
-      opacityLabel: 'Overlay Opacity',
-      cfgAlwaysOnTop: 'Always on top',
-      cfgClickThrough: 'Overlay click-through',
+      placementLabel: 'Display Mode',
+      placeTaskbar: 'Taskbar',
+      placeDesktop: 'Desktop',
+      placeFloating: 'Floating',
+      opacityLabel: 'Opacity',
+      cfgCodexEnabled: 'Track Codex offline logs',
+      cfgAgEnabled: 'Track Antigravity offline logs',
+      cfgAlwaysOnTop: 'Always on top (floating)',
+      cfgClickThrough: 'Click-through (floating only)',
       cfgStartOnLogin: 'Start on Windows login',
       cfgLowThreshold: 'Low-quota alert threshold',
       privacyBoundaryNote: 'Security boundary: zero outbound network, zero telemetry, never reads auth.json or prompt bodies. Exports stay in native Rust.',
@@ -146,6 +164,7 @@
     config: {
       theme: 'Dark',
       language: 'ZhCn',
+      display_placement: 'Taskbar',
       overlay_opacity_pct: 90,
       always_on_top: true,
       click_through: false,
@@ -153,7 +172,7 @@
       low_quota_threshold_pct: 10,
       cooldown_minutes: 60,
       codex: { enabled: true },
-      antigravity: { enabled: false, poll_interval_secs: 90 },
+      antigravity: { enabled: true, poll_interval_secs: 90 },
     },
     snapshot: null,
   };
@@ -200,14 +219,54 @@
   }
 
   function fmtDurationMs(ms) {
-    if (ms == null || ms <= 0) return '0m';
-    const totalMin = Math.floor(ms / 60000);
-    const days = Math.floor(totalMin / 1440);
-    const hours = Math.floor((totalMin % 1440) / 60);
+    if (ms == null || ms <= 0) return uiState.config.language === 'EnUs' ? '0m' : '0分钟';
+    const zh = uiState.config.language !== 'EnUs';
+    if (ms > 86_400_000) {
+      const totalHours = Math.ceil(ms / 3_600_000);
+      const days = Math.floor(totalHours / 24);
+      const hours = totalHours % 24;
+      if (zh) return hours > 0 ? `${days}天${hours}时` : `${days}天`;
+      return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+    }
+    const totalMin = Math.ceil(ms / 60_000);
+    if (totalMin >= 1440) return zh ? '1天' : '1d';
+    const hours = Math.floor(totalMin / 60);
     const mins = totalMin % 60;
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
+    if (hours > 0) {
+      if (zh) return mins > 0 ? `${hours}时${mins}分` : `${hours}小时`;
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    }
+    return zh ? `${totalMin}分钟` : `${totalMin}m`;
+  }
+
+  function fmtResetTarget(resetsInMs, updatedAtMs) {
+    if (resetsInMs == null || resetsInMs <= 0) return '';
+    const dur = fmtDurationMs(resetsInMs);
+    const base = updatedAtMs || Date.now();
+    const target = new Date(base + resetsInMs);
+    const now = new Date(base);
+    const hh = String(target.getHours()).padStart(2, '0');
+    const mm = String(target.getMinutes()).padStart(2, '0');
+    const sameDay = target.getFullYear() === now.getFullYear()
+      && target.getMonth() === now.getMonth()
+      && target.getDate() === now.getDate();
+    const clock = sameDay
+      ? `${hh}:${mm}`
+      : `${String(target.getMonth() + 1).padStart(2, '0')}/${String(target.getDate()).padStart(2, '0')} ${hh}:${mm}`;
+    return uiState.config.language === 'EnUs'
+      ? `${t('resetsIn')} ${dur} (${clock})`
+      : `${dur}后重置 (${clock})`;
+  }
+
+  function isProPlan(planType) {
+    if (!planType || typeof planType !== 'string') return false;
+    return planType.trim().toLowerCase().startsWith('pro');
+  }
+
+  function periodLabel(q) {
+    if (q.period_kind === 'FiveHour') return t('quota5h');
+    if (q.period_kind === 'Weekly') return t('quota7d');
+    return String(q.target_label || '');
   }
 
   function fmtTime(ms) {
@@ -339,13 +398,15 @@
     for (const p of providers || []) {
       const pName = p.provider === 'codex' ? 'Codex' : 'Antigravity';
       const pClass = p.provider === 'codex' ? 'badge badge-codex' : 'badge badge-ag';
+      const hide5h = p.provider === 'codex' && isProPlan(p.credits?.plan_type);
 
       for (const q of p.quotas || []) {
+        if (hide5h && q.period_kind === 'FiveHour') continue;
         renderedAny = true;
         const item = el('div', 'quota-item');
         const top = el('div', 'ov-row');
         const left = el('div', 'ov-label');
-        left.append(el('span', pClass, pName), el('span', '', String(q.target_label || '')));
+        left.append(el('span', pClass, pName), el('span', '', periodLabel(q)));
         const right = el('span', 'ov-val tnum');
         const track = el('div', 'progress-track');
         const fill = el('div', 'progress-fill');
@@ -359,7 +420,7 @@
           right.style.color = quotaColor(used);
           fill.style.width = `${rem}%`;
           fill.style.background = quotaColor(used);
-          const resetTxt = st.Active.resets_in_ms != null ? `${t('resetsIn')} ${fmtDurationMs(st.Active.resets_in_ms)}` : '';
+          const resetTxt = fmtResetTarget(st.Active.resets_in_ms, uiState.snapshot?.updated_at_ms);
           meta.append(
             el('span', '', `${t('used')} ${used.toFixed(0)}%${resetTxt ? ` · ${resetTxt}` : ''}`),
             el('span', '', `${t('observedAt')} ${fmtTime(q.observed_at_ms)}`),
@@ -411,7 +472,7 @@
     if (!renderedAny) {
       stack.appendChild(el('div', 'empty-state', t('noData')));
     }
-    stack.appendChild(el('div', 'honest-note', t('agOfflineNotice')));
+    stack.appendChild(el('div', 'honest-note', uiState.config.antigravity?.enabled ? t('agOfflineNotice') : t('agDisabledNotice')));
   }
 
   function renderModels(models) {
@@ -479,9 +540,12 @@
     document.querySelectorAll('[data-range]').forEach(b => b.classList.toggle('active', b.getAttribute('data-range') === uiState.range));
     document.querySelectorAll('[data-cfg-theme]').forEach(b => b.classList.toggle('active', b.getAttribute('data-cfg-theme') === uiState.config.theme));
     document.querySelectorAll('[data-cfg-lang]').forEach(b => b.classList.toggle('active', b.getAttribute('data-cfg-lang') === uiState.config.language));
+    document.querySelectorAll('[data-cfg-placement]').forEach(b => b.classList.toggle('active', b.getAttribute('data-cfg-placement') === (uiState.config.display_placement || 'Taskbar')));
 
     document.getElementById('cfg-opacity').value = String(uiState.config.overlay_opacity_pct);
     document.getElementById('cfg-opacity-val').textContent = `${uiState.config.overlay_opacity_pct}%`;
+    document.getElementById('cfg-codex-enabled').checked = Boolean(uiState.config.codex?.enabled);
+    document.getElementById('cfg-ag-enabled').checked = Boolean(uiState.config.antigravity?.enabled);
     document.getElementById('cfg-topmost').checked = Boolean(uiState.config.always_on_top);
     document.getElementById('cfg-clickthrough').checked = Boolean(uiState.config.click_through);
     document.getElementById('cfg-autostart').checked = Boolean(uiState.config.start_on_login);
@@ -591,6 +655,20 @@
         uiState.config.language = btn.getAttribute('data-cfg-lang');
         pushConfigUpdate();
       });
+    });
+    document.querySelectorAll('[data-cfg-placement]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        uiState.config.display_placement = btn.getAttribute('data-cfg-placement');
+        pushConfigUpdate();
+      });
+    });
+    document.getElementById('cfg-codex-enabled').addEventListener('change', e => {
+      uiState.config.codex = { ...(uiState.config.codex || {}), enabled: e.target.checked };
+      pushConfigUpdate();
+    });
+    document.getElementById('cfg-ag-enabled').addEventListener('change', e => {
+      uiState.config.antigravity = { ...(uiState.config.antigravity || { poll_interval_secs: 90 }), enabled: e.target.checked };
+      pushConfigUpdate();
     });
     document.getElementById('cfg-opacity').addEventListener('input', e => {
       uiState.config.overlay_opacity_pct = Number(e.target.value);

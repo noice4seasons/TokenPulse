@@ -182,12 +182,28 @@
           </div>
         </div>
         <div class="setting-row">
+          <span data-i18n="placementLabel"></span>
+          <div class="ctrl-group">
+            <button class="seg-btn" data-cfg-placement="Taskbar" data-i18n="placeTaskbar"></button>
+            <button class="seg-btn" data-cfg-placement="DesktopWidget" data-i18n="placeDesktop"></button>
+            <button class="seg-btn" data-cfg-placement="Floating" data-i18n="placeFloating"></button>
+          </div>
+        </div>
+        <div class="setting-row">
           <span data-i18n="opacityLabel"></span>
           <div class="range-inline">
             <input id="cfg-opacity" type="range" min="30" max="100" value="90">
             <span id="cfg-opacity-val" class="mono">90%</span>
           </div>
         </div>
+        <label class="setting-toggle">
+          <span data-i18n="cfgCodexEnabled"></span>
+          <input id="cfg-codex-enabled" type="checkbox">
+        </label>
+        <label class="setting-toggle">
+          <span data-i18n="cfgAgEnabled"></span>
+          <input id="cfg-ag-enabled" type="checkbox">
+        </label>
         <label class="setting-toggle">
           <span data-i18n="cfgAlwaysOnTop"></span>
           <input id="cfg-topmost" type="checkbox">
